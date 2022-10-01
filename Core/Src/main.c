@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "tim.h"
+#include "usb_host.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -26,6 +27,9 @@
 #include "QMC5883L.h"
 #include "i2c_MA.h"
 #include "i2c_sw.h"
+#include "usbh_hid.h"
+#include "usbh_hid_joystick.h"
+#include "usbh_def.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,11 +53,19 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+extern USBH_HandleTypeDef hUsbHostHS;
+extern HID_JOYSTICK_Info_TypeDef DJoyStick;
+HID_HandleTypeDef HID_handle;
+USBH_StatusTypeDef desc;
+int mousex, mousey;
+char hat1;
+uint8_t hat2;
 volatile int impulses = 0;
 volatile uint8_t prevState = 0;
-volatile uint8_t isDown = 1;
-volatile double dutyCycle = 0.75;
-volatile int force = 8500;
+uint8_t isDown = 1;
+volatile double dutyCycle = 0.55;
+int force = 8500;
+uint8_t canMove = 0;
 char nack = 60;
 extern QMC5883L_Info_TypeDef SensorDown;
 extern QMC5883L_Info_TypeDef SensorUp;
@@ -65,8 +77,13 @@ char isUpS, isDownS;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-/* USER CODE BEGIN PFP */
+void MX_USB_HOST_Process(void);
 
+/* USER CODE BEGIN PFP */
+//void USBH_HID_EventCallback(USBH_HandleTypeDef *phost)
+//{
+//
+//}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -97,14 +114,16 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  FFInit();
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
+  MX_USB_HOST_Init();
   /* USER CODE BEGIN 2 */
+
   // Motor inits
   HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
@@ -112,16 +131,6 @@ int main(void)
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
 
   // sensor inits
-//  if(HAL_I2C_IsDeviceReady(&hi2c1, 0x1A, 10, 100) == HAL_OK)
-//  	  QMC5883L_Init();
-  //GPIOG->AFR[0] = 0;
-  //GPIOG->AFR[1] = 0;
-  //GPIOB->MODER |= GPIO_MODER_OUTPUT << (8*2);
-  //GPIOB->OTYPER |= GPIO_OTYPER_PP << (8);
-  //GPIOB->OSPEEDR |= GPIO_OSPEEDR_LOW << (8*2);
-  //GPIOB->PUPDR |= GPIO_PUPDR_PULL_UP << (8*2);
-  //GPIOB->BSRR = MAG_SCL_Pin << 16;
-  //GPIOB->BSRR = MAG_SCL_Pin; // 1 SCL
   SW_I2C_initial();
   i2c_port_initial(SW_I2C1);
   HAL_TIM_Base_Start(&htim2);
@@ -132,12 +141,43 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  HAL_Delay(10);
-//	  if(QMC5583L_IsReady() == 0x01)
-//	  {
-//	     QMC5883L_UpdateAxisReadings();
-//	  }
-	  //QMC5883L_UpdateAxisReadings();
+	  //HAL_Delay(10);
+	  ReadWriteJoyStick();
+	  //HAL_Delay(100);
+	  //ForceFeedbackTest();
+
+	  DJoyStick.X=DJoyStick.RAW_IN[0]&0x000003FF;
+	  DJoyStick.Y=1023-((DJoyStick.RAW_IN[0]>>10)&0x000003FF);
+	  DJoyStick.Z=((DJoyStick.RAW_IN[0]>>24)&0x000000FF);
+	  for(int i=0;i<8;i++)
+		DJoyStick.Button[i]=(char)((DJoyStick.RAW_IN[1]>>i)&0x00000001);
+	  DJoyStick.Throttle=	(DJoyStick.RAW_IN[1]>>8)&0x000000FF;
+	  for(int i=8;i<13;i++)
+		DJoyStick.Button[i]=(char)((DJoyStick.RAW_IN[1]>>i+8)&0x00000001);
+	  DJoyStick.Hat = (uint8_t)((DJoyStick.RAW_IN[0]>>20)&0xF);
+
+	  force = 3000 + 9000 * DJoyStick.Throttle / 255.0;
+
+	  if(DJoyStick.Y > 550)
+	  {
+		  if(!DJoyStick.Button[1])
+			  dutyCycle = 0.45 + 0.35 * (DJoyStick.Y - 700.0) / 323.0;
+		  else
+			  dutyCycle = 0.9 + 0.1 * (DJoyStick.Y - 700.0) / 323.0;
+		  isDown = 1;
+	  }
+	  else
+	  {
+		  if(!DJoyStick.Button[1])
+			  dutyCycle = 0.45 + 0.35 * (-(DJoyStick.Y-400.0)) / 400.0;
+		  else
+			  dutyCycle = 0.9 + 0.1 * (-(DJoyStick.Y-400.0)) / 400.0;
+		  isDown = 0;
+	  }
+
+	  if(dutyCycle < 0.45) dutyCycle = 0.45;
+	  else if(dutyCycle > 1.0) dutyCycle = 1.0;
+
 	  nack = SW_I2C_ReadControl_8Bit(SW_I2C1,QMC5883L_ADDR,QMC5883L_CTRL);
 	  QMC5883L_UpdateAxisReadings();
 	  if(isDown)
@@ -145,25 +185,25 @@ int main(void)
 	  else
 		  htim1.Instance->CCR3 = (int)(MOTOR_PWM_PERIOD*dutyCycle) - 1;
 
-#ifdef DEBUG_MAGZ
-
-	  if((SensorGrip1.AxisZ > 1000) | (SensorGrip2.AxisZ > 1000) | (SensorGrip3.AxisZ > 1000))
-	  {
-		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
-	  }
-	  else
-	  {
-		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
-	  }
-	  if((abs(SensorUp.AxisZ) > 1000) | (abs(SensorDown.AxisZ) > 1000))
-	  {
-		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
-	  }
-	  else
-	  {
-		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
-	  }
-#endif
+//#ifdef DEBUG_MAGZ
+//
+//	  if((SensorGrip1.AxisZ > 1000) | (SensorGrip2.AxisZ > 1000) | (SensorGrip3.AxisZ > 1000))
+//	  {
+//		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
+//	  }
+//	  else
+//	  {
+//		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
+//	  }
+//	  if((abs(SensorUp.AxisZ) > 1000) | (abs(SensorDown.AxisZ) > 1000))
+//	  {
+//		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
+//	  }
+//	  else
+//	  {
+//		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
+//	  }
+//#endif
 #ifdef DEBUG_BOUNDS
 	  if(abs(SensorUp.RawX) > 28000 )
 	  {
@@ -175,7 +215,7 @@ int main(void)
 		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
 		  isUpS = 0;
 	  }
-	  if(abs(SensorDown.RawX) > 28000 && abs(SensorDown.RawX) < 30000 && SensorDown.RawZ < 1500)
+	  if(abs(SensorDown.RawX) > 27000 /*&& abs(SensorDown.RawX) < 30000*/ && SensorDown.RawZ < 1500)
 	  {
 		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
 		  isDownS = 1;
@@ -187,71 +227,38 @@ int main(void)
 	  }
 
 #endif
-//	  if(isDown && isDownS)
-//	  {
-//		  isDown = 0;
-//		  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
-//		  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_SET);
-//	  }
-//	  if(!isDown && isUpS)
-//	  {
-//		  isDown = 1;
-//		  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_SET);
-//		  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
-//	  }
 	  HAL_Delay(1);
-	  if(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET)  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  if(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET)
+	  if(DJoyStick.Button[0])
 	  {
-#ifdef DEBUG_MOT
-		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
-#endif
-		  if(prevState != 1)
+		  if(isDown)
 		  {
-			  isDown = !isDown;
-
-			  if(isDown)
-			  {
-#ifdef DEBUG_MOT
-				  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
-#endif
-				  // dół
-				  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_SET);
-				  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
-			  }
-			  else
-			  {
-#ifdef DEBUG_MOT
-				  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
-#endif
-				  // góra
-				  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
-				  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_SET);
-			  }
+			  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_SET);
+			  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
 		  }
-		  prevState = 1;
+		  else
+		  {
+			  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
+			  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_SET);
+		  }
 	  }
-	  if(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET)
+	  else
 	  {
-#ifdef DEBUG_MOT
-		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
-#endif
-		  // stop
 		  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
 		  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
-
-		  prevState = 0;
 	  }
+
 	  if((isDown && isDownS) ||
-		 (!isDown && isUpS) ||
-		 (abs(SensorGrip1.AxisZ) > force ||
-		 abs(SensorGrip2.AxisZ) > force ||
-		 abs(SensorGrip3.AxisZ) > force) &&
-		 isDown)
+	  	 (!isDown && isUpS) ||
+	  	 (abs(SensorGrip1.AxisZ) > force ||
+	  	 abs(SensorGrip2.AxisZ) > force ||
+	  	 abs(SensorGrip3.AxisZ) > force) &&
+	  	 isDown)
 	  {
 		  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
 		  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
 	  }
     /* USER CODE END WHILE */
+    MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
   }
@@ -270,26 +277,19 @@ void SystemClock_Config(void)
   /** Configure the main internal regulator output voltage
   */
   __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE3);
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 180;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 72;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 7;
+  RCC_OscInitStruct.PLL.PLLQ = 3;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Activate the Over-Drive mode
-  */
-  if (HAL_PWREx_EnableOverDrive() != HAL_OK)
   {
     Error_Handler();
   }
@@ -299,10 +299,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
