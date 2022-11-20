@@ -86,6 +86,49 @@ int PX=0;
 int PY=0;
 int swc=0;
 int X = 0;
+char canVibrate = 0;
+char vibOffset = 0;
+long lastTick = 0;
+void Vibrate(float strength)
+{
+	if(DJoyStick.Button[0])
+		canVibrate=1;
+	if(DJoyStick.Button[1])
+		canVibrate=0;
+
+	if(canVibrate && (HAL_GetTick() - lastTick > strength*100+20))
+	{
+		vibOffset = strength*100;
+		switch(swc)
+		{
+		case 0:
+			PX=0+vibOffset;
+			PY=128;
+			swc=1;
+			break;
+		case 1:
+			PX=255-vibOffset;
+			PY=128;
+			swc=0;
+		}
+
+
+
+	DJoyStick.RAW_OUT[0]=0x51;
+	DJoyStick.RAW_OUT[1]=0x08;
+	DJoyStick.RAW_OUT[2]=PX;
+	DJoyStick.RAW_OUT[3]=PY;
+	DJoyStick.RAW_OUT[4]=0;
+	DJoyStick.RAW_OUT[5]=0;
+	DJoyStick.RAW_OUT[6]=0;
+	lastTick = HAL_GetTick();
+	}
+	else
+	{
+		DJoyStick.RAW_OUT[0]=0x53;
+		DJoyStick.RAW_OUT[1]=0x00;
+	}
+}
 void ForceFeedbackTest(void)
 	{
 int16_t temp;
@@ -117,35 +160,19 @@ uint8_t PX,PY;
 		}
 
 
-	if(X==1)
+	if(X==1) {
+		switch(swc)
 		{
-		if(swc==0)
-			{
+		case 0:
 			PX=0;
-			PY=0;
+			PY=128;
 			swc=1;
-			}
-		else
-			if(swc==1)
-				{
-				PX=0xFF;
-				PY=0x0;
-				swc=2;
-				}
-					else
-			if(swc==2)
-				{
-				PX=0xFF;
-				PY=0xFF;
-					swc=3;
-				}
-			else
-				if(swc==3)
-					{
-					PX=0x0;
-					PY=0xFF;
-					swc=0;
-					}
+			break;
+		case 1:
+			PX=255;
+			PY=128;
+			swc=0;
+		}
 		DJoyStick.RAW_OUT[0]=0x51;
 		DJoyStick.RAW_OUT[1]=0x08;
 		}
@@ -257,10 +284,7 @@ void ReadWriteJoyStick(void)
 HID_HandleTypeDef *HID_Handle = (HID_HandleTypeDef *) hUsbHostHS.pActiveClass->pData;
 if(HID_Handle->state == HID_IDLE)
 	{
-	if(Edge())
-		HID_Handle->state = HID_SEND_DATA;
-else
-	HID_Handle->state = HID_GET_DATA;
+		HID_Handle->state = HID_GET_DATA;
 	}
 }
 

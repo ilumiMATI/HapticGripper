@@ -30,6 +30,9 @@
 #include "usbh_hid.h"
 #include "usbh_hid_joystick.h"
 #include "usbh_def.h"
+
+// lcd display
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -67,6 +70,7 @@ volatile double dutyCycle = 0.55;
 int force = 8500;
 uint8_t canMove = 0;
 char nack = 60;
+float vibrationForce = 0;
 extern QMC5883L_Info_TypeDef SensorDown;
 extern QMC5883L_Info_TypeDef SensorUp;
 extern QMC5883L_Info_TypeDef SensorGrip1;
@@ -114,7 +118,7 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  FFInit();
+  //FFInit();
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -135,16 +139,20 @@ int main(void)
   i2c_port_initial(SW_I2C1);
   HAL_TIM_Base_Start(&htim2);
   QMC5883L_Init();
+
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  //HAL_Delay(10);
+
+	  HAL_Delay(5);
 	  ReadWriteJoyStick();
-	  //HAL_Delay(100);
+	  //HAL_Delay(force);
 	  //ForceFeedbackTest();
+	  //Vibrate(vibrationForce);
 
 	  DJoyStick.X=DJoyStick.RAW_IN[0]&0x000003FF;
 	  DJoyStick.Y=1023-((DJoyStick.RAW_IN[0]>>10)&0x000003FF);
@@ -155,8 +163,9 @@ int main(void)
 	  for(int i=8;i<13;i++)
 		DJoyStick.Button[i]=(char)((DJoyStick.RAW_IN[1]>>i+8)&0x00000001);
 	  DJoyStick.Hat = (uint8_t)((DJoyStick.RAW_IN[0]>>20)&0xF);
-
-	  force = 3000 + 9000 * DJoyStick.Throttle / 255.0;
+      // Mechanical functions and sensors
+	  force = 1000 + 9000 * DJoyStick.Throttle / 255.0;
+	  //vibrationForce = DJoyStick.Throttle / 255.0;
 
 	  if(DJoyStick.Y > 550)
 	  {
@@ -205,26 +214,28 @@ int main(void)
 //	  }
 //#endif
 #ifdef DEBUG_BOUNDS
-	  if(abs(SensorUp.RawX) > 28000 )
+	  if(abs(SensorUp.RawX) > 25000 && SensorUp.RawZ < 500)
 	  {
 		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
 		  isUpS = 1;
 	  }
 	  else
 	  {
-		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
-		  isUpS = 0;
+//		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
+//		  isUpS = 0;
 	  }
-	  if(abs(SensorDown.RawX) > 27000 /*&& abs(SensorDown.RawX) < 30000*/ && SensorDown.RawZ < 1500)
+	  //if(abs(SensorDown.RawX) > 27000 && abs(SensorDown.RawX) < 30000 && SensorDown.RawZ < 1500)
+	  if(abs(SensorDown.RawX) > 10000 && (abs(SensorDown.RawZ) < 2000 || SensorDown.RawZ < -5000) && SensorDown.RawY < -300)
 	  {
 		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
 		  isDownS = 1;
 	  }
 	  else
 	  {
-		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
-		  isDownS = 0;
+//		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
+//		  isDownS = 0;
 	  }
+
 
 #endif
 	  HAL_Delay(1);
@@ -234,11 +245,17 @@ int main(void)
 		  {
 			  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_SET);
 			  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
+
+			  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
+			  isUpS = 0;
 		  }
 		  else
 		  {
 			  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
 			  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_SET);
+
+			  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
+			  isDownS = 0;
 		  }
 	  }
 	  else

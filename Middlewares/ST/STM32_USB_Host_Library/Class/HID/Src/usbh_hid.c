@@ -455,6 +455,10 @@ static USBH_StatusTypeDef USBH_HID_Process(USBH_HandleTypeDef *phost)
 //                                (uint8_t)HID_Handle->length,
 //                                HID_Handle->InPipe);
       USBH_InterruptReceiveData(phost, (uint8_t*) &(DJoyStick.RAW_IN[0]), 7 ,HID_Handle->InPipe);
+      if(Edge()) {
+    	  HAL_Delay(4);
+    	  USBH_InterruptSendData(phost, DJoyStick.RAW_OUT, 7, HID_Handle->OutPipe);
+      }
 
       HID_Handle->state = HID_POLL;
       HID_Handle->timer = phost->Timer;

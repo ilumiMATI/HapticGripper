@@ -32,5 +32,6 @@ HID_JOYSTICK_Output_Fifo_TypeDef;
 
 USBH_StatusTypeDef USBH_HID_JoyStickInit(USBH_HandleTypeDef *phost);
 void ReadWriteJoyStick(void);
+void Vibrate(float strength);
 //HID_JOYSTICK_Info_TypeDef *USBH_HID_GetJoyStickInfo(USBH_HandleTypeDef *phost);
 #endif
