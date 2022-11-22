@@ -69,8 +69,8 @@ void Error_Handler(void);
 #define PH1_OSC_OUT_GPIO_Port GPIOH
 #define NCS_MEMS_SPI_Pin GPIO_PIN_1
 #define NCS_MEMS_SPI_GPIO_Port GPIOC
-#define CSX_Pin GPIO_PIN_2
-#define CSX_GPIO_Port GPIOC
+#define CS_Pin GPIO_PIN_2
+#define CS_GPIO_Port GPIOC
 #define B1_Pin GPIO_PIN_0
 #define B1_GPIO_Port GPIOA
 #define MEMS_INT1_Pin GPIO_PIN_1
@@ -86,29 +86,25 @@ void Error_Handler(void);
 #define OTG_FS_OC_EXTI_IRQn EXTI9_5_IRQn
 #define BOOT1_Pin GPIO_PIN_2
 #define BOOT1_GPIO_Port GPIOB
-#define ENKODER_Pin GPIO_PIN_8
-#define ENKODER_GPIO_Port GPIOE
-#define ENKODER_EXTI_IRQn EXTI9_5_IRQn
 #define MOT_IN2_Pin GPIO_PIN_12
 #define MOT_IN2_GPIO_Port GPIOE
 #define MOT_IN1_Pin GPIO_PIN_14
 #define MOT_IN1_GPIO_Port GPIOE
 #define TE_Pin GPIO_PIN_11
 #define TE_GPIO_Port GPIOD
-#define RDX_Pin GPIO_PIN_12
-#define RDX_GPIO_Port GPIOD
-#define WRX_DCX_Pin GPIO_PIN_13
-#define WRX_DCX_GPIO_Port GPIOD
+#define RST_Pin GPIO_PIN_12
+#define RST_GPIO_Port GPIOD
+#define DC_Pin GPIO_PIN_13
+#define DC_GPIO_Port GPIOD
 #define TP_INT1_Pin GPIO_PIN_15
 #define TP_INT1_GPIO_Port GPIOA
+#define ENKODER_Pin GPIO_PIN_7
+#define ENKODER_GPIO_Port GPIOD
+#define ENKODER_EXTI_IRQn EXTI9_5_IRQn
 #define LD3_Pin GPIO_PIN_13
 #define LD3_GPIO_Port GPIOG
 #define LD4_Pin GPIO_PIN_14
 #define LD4_GPIO_Port GPIOG
-#define MAG_SCL_Pin GPIO_PIN_8
-#define MAG_SCL_GPIO_Port GPIOB
-#define MAG1_Pin GPIO_PIN_9
-#define MAG1_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

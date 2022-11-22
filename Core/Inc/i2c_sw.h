@@ -20,19 +20,19 @@
 
 // - data pins -
 #define   GPIO_SW_I2C1_SDA			GPIOB
-#define   GPIO_SW_I2C1_SDA_PIN		GPIO_PIN_7
+#define   GPIO_SW_I2C1_SDA_PIN		GPIO_PIN_9
 
 #define   GPIO_SW_I2C2_SDA			GPIOB
 #define   GPIO_SW_I2C2_SDA_PIN		GPIO_PIN_6
 
 #define   GPIO_SW_I2C3_SDA			GPIOB
-#define   GPIO_SW_I2C3_SDA_PIN		GPIO_PIN_5
+#define   GPIO_SW_I2C3_SDA_PIN		GPIO_PIN_4
 
 #define   GPIO_SW_I2C4_SDA			GPIOB
-#define   GPIO_SW_I2C4_SDA_PIN		GPIO_PIN_9
+#define   GPIO_SW_I2C4_SDA_PIN		GPIO_PIN_5
 
 #define   GPIO_SW_I2C5_SDA			GPIOB
-#define   GPIO_SW_I2C5_SDA_PIN		GPIO_PIN_4
+#define   GPIO_SW_I2C5_SDA_PIN		GPIO_PIN_7
 /*
 #define   GPIO_SW_I2Cx_SCL			GPIOx
 #define   GPIO_SW_I2Cx_SDA			GPIOx

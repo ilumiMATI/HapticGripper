@@ -18,18 +18,26 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "spi.h"
 #include "tim.h"
 #include "usb_host.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+// Magnetometry I2C
 #include "QMC5883L.h"
 #include "i2c_MA.h"
 #include "i2c_sw.h"
+
+// Joystick USB
 #include "usbh_hid.h"
 #include "usbh_hid_joystick.h"
 #include "usbh_def.h"
+
+//LCD
+#include "ILI9341/ILI9341_STM32_Driver.h"
+#include "ILI9341/ILI9341_GFX.h"
 
 // lcd display
 
@@ -77,6 +85,8 @@ extern QMC5883L_Info_TypeDef SensorGrip1;
 extern QMC5883L_Info_TypeDef SensorGrip2;
 extern QMC5883L_Info_TypeDef SensorGrip3;
 char isUpS, isDownS;
+long lastDrawTick = 0;
+char charBuforNumber[6];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -84,10 +94,36 @@ void SystemClock_Config(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
-//void USBH_HID_EventCallback(USBH_HandleTypeDef *phost)
-//{
-//
-//}
+void drawNumber(uint16_t number,uint16_t x, uint16_t y, uint32_t color,uint16_t size,uint32_t bgcolor)
+{
+	char isSignificant = 0;
+	//char index = 0;
+	charBuforNumber[5] = '\n';
+
+	charBuforNumber[0] = number / 10000;
+	charBuforNumber[1] = (number%10000)/1000;
+	charBuforNumber[2] = (number%1000)/100;
+	charBuforNumber[3] = (number%100)/10;
+	charBuforNumber[4] = number%10;
+
+	for(uint8_t i = 0 ;i<5 ;i++)
+	{
+		//charBuforNumber[i] = charBuforNumber[i] == 0 ? ' ' : charBuforNumber[i] + '0';
+		if(charBuforNumber[i] == 0 && !isSignificant)
+		{
+			charBuforNumber[i] = ' ';
+		} else if(charBuforNumber != 0)
+		{
+			//if(isSignificant == 0) {
+				isSignificant = 1;
+				//index = i;
+			//}
+			charBuforNumber[i] += '0';
+		}
+	}
+
+	ILI9341_Draw_VarText(charBuforNumber, x, y, color, size, bgcolor);
+}
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -126,6 +162,7 @@ int main(void)
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_USB_HOST_Init();
+  MX_SPI5_Init();
   /* USER CODE BEGIN 2 */
 
   // Motor inits
@@ -140,6 +177,32 @@ int main(void)
   HAL_TIM_Base_Start(&htim2);
   QMC5883L_Init();
 
+  ILI9341_Init();
+  ILI9341_Fill_Screen(BLACK);
+  ILI9341_Set_Rotation(SCREEN_VERTICAL_2);
+  ILI9341_Draw_Text("  Buttons  ", 0, 0, BLACK, 2, YELLOW);
+  const char* numbers[12] = {"01","02","03","04","05","06","07","08","09","10","11","12"};
+
+  for(int i=0;i<12;i++)
+  {
+	  ILI9341_Draw_Text(numbers[i], 5+i*20, 32, WHITE, 1, 0);
+  }
+
+  ILI9341_Draw_Text("  Axis  ", 0, 42, BLACK, 2, YELLOW);
+  ILI9341_Draw_Hollow_Rectangle_Coord(0, 60, 239, 68, WHITE);
+  ILI9341_Draw_Filled_Rectangle_Coord(2, 62, 237, 67, BLACK);
+  ILI9341_Draw_Text("  Force  ", 0, 71, BLACK, 2, YELLOW);
+  ILI9341_Draw_Hollow_Rectangle_Coord(0, 89, 239, 97, WHITE);
+  ILI9341_Draw_Filled_Rectangle_Coord(2, 91, 237, 96, BLACK);
+  ILI9341_Draw_Text("  Finger 1 sensor  ", 0, 100, BLACK, 2, YELLOW);
+  ILI9341_Draw_Text("  Finger 2 sensor  ", 0, 140, BLACK, 2, YELLOW);
+  ILI9341_Draw_Text("  Finger 3 sensor  ", 0, 180, BLACK, 2, YELLOW);
+
+  ILI9341_Draw_Filled_Rectangle_Coord(0, 320-2*18, 240, 320, YELLOW);
+  ILI9341_Draw_Text("gripper", 60, 295, BLACK, 3, YELLOW);
+  ILI9341_Draw_Text("Haptic", 85, 285, BLACK, 2, YELLOW);
+  //ILI9341_Draw_Vertical_Line(120, 0, 320, WHITE);
+
 
   /* USER CODE END 2 */
 
@@ -147,8 +210,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-	  HAL_Delay(5);
+	  HAL_Delay(10);
 	  ReadWriteJoyStick();
 	  //HAL_Delay(force);
 	  //ForceFeedbackTest();
@@ -164,8 +226,36 @@ int main(void)
 		DJoyStick.Button[i]=(char)((DJoyStick.RAW_IN[1]>>i+8)&0x00000001);
 	  DJoyStick.Hat = (uint8_t)((DJoyStick.RAW_IN[0]>>20)&0xF);
       // Mechanical functions and sensors
-	  force = 1000 + 9000 * DJoyStick.Throttle / 255.0;
+	  force = 1000 + 9000 * (255.0-DJoyStick.Throttle) / 255.0;
 	  //vibrationForce = DJoyStick.Throttle / 255.0;
+	  for(int i = 0; i<12;i++)
+	  {
+		  if(DJoyStick.Button[i] == 1)
+		  {
+			  ILI9341_Draw_Filled_Rectangle_Coord(2+i*20, 20, 18+i*20, 30, GREEN);
+		  } else
+		  {
+			  ILI9341_Draw_Filled_Rectangle_Coord(2+i*20, 20, 18+i*20, 30, RED);
+		  }
+	  }
+	  int pixelsY = (236*DJoyStick.Y/1023);
+	  if(pixelsY != 0)
+		  ILI9341_Draw_Rectangle(2, 62, pixelsY, 5, WHITE);
+	  if(pixelsY != 236)
+		  ILI9341_Draw_Rectangle(2+pixelsY, 62, (236-pixelsY), 5, BLACK);
+
+
+	  int pixelsF = (236*(255-DJoyStick.Throttle)/255);
+	  if(pixelsF != 0)
+		  ILI9341_Draw_Rectangle(2, 91, pixelsF, 5, WHITE);
+	  if(pixelsF != 236)
+		  ILI9341_Draw_Rectangle(2+pixelsF, 91, (236-pixelsF), 5, BLACK);
+
+	  drawNumber(abs(SensorGrip1.AxisZ), 10, 120, BLACK, 2, WHITE);
+
+	  drawNumber(abs(SensorGrip2.AxisZ), 10, 160, BLACK, 2, WHITE);
+
+	  drawNumber(abs(SensorGrip3.AxisZ), 10, 200, BLACK, 2, WHITE);
 
 	  if(DJoyStick.Y > 550)
 	  {
@@ -274,6 +364,7 @@ int main(void)
 		  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
 		  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
 	  }
+
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
 

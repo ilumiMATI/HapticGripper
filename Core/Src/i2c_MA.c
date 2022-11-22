@@ -11,6 +11,13 @@
 #include "i2c_MA.h"
 #include "gpio.h"
 
+#ifndef MAG1_Pin
+#define MAG1_Pin 999
+#endif
+#ifndef MAG_SCL_Pin
+#define MAG_SCL_Pin 999
+#endif
+
 
 //void delay_us (uint32_t us)
 //{
