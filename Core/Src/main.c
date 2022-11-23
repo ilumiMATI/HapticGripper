@@ -87,6 +87,8 @@ extern QMC5883L_Info_TypeDef SensorGrip3;
 char isUpS, isDownS;
 long lastDrawTick = 0;
 char charBuforNumber[6];
+char isForceReached = 0;
+extern char canVibrate;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -123,6 +125,142 @@ void drawNumber(uint16_t number,uint16_t x, uint16_t y, uint32_t color,uint16_t 
 	}
 
 	ILI9341_Draw_VarText(charBuforNumber, x, y, color, size, bgcolor);
+}
+
+void SendDataLCD()
+{
+  for(int i = 0; i<12;i++)
+  {
+	  if(DJoyStick.Button[i] == 1)
+	  {
+		  ILI9341_Draw_Filled_Rectangle_Coord(2+i*20, 20, 18+i*20, 30, GREEN);
+	  } else
+	  {
+		  ILI9341_Draw_Filled_Rectangle_Coord(2+i*20, 20, 18+i*20, 30, RED);
+	  }
+  }
+  int pixelsY = (236*DJoyStick.Y/1023);
+  if(pixelsY != 0)
+	  ILI9341_Draw_Rectangle(2, 62, pixelsY, 5, WHITE);
+  if(pixelsY != 236)
+	  ILI9341_Draw_Rectangle(2+pixelsY, 62, (236-pixelsY), 5, BLACK);
+
+
+  int pixelsF = (236*(255-DJoyStick.Throttle)/255);
+  if(pixelsF != 0)
+	  ILI9341_Draw_Rectangle(2, 91, pixelsF, 5, WHITE);
+  if(pixelsF != 236)
+	  ILI9341_Draw_Rectangle(2+pixelsF, 91, (236-pixelsF), 5, BLACK);
+  if(HAL_GetTick() - lastDrawTick > 100) {
+	  drawNumber(abs(SensorGrip1.AxisZ), 10, 120, BLACK, 2, WHITE);
+	  drawNumber(abs(SensorGrip2.AxisZ), 10, 160, BLACK, 2, WHITE);
+	  drawNumber(abs(SensorGrip3.AxisZ), 10, 200, BLACK, 2, WHITE);
+	  lastDrawTick = HAL_GetTick();
+  }
+}
+
+void InterpretJoystickData()
+{
+  DJoyStick.X=DJoyStick.RAW_IN[0]&0x000003FF;
+  DJoyStick.Y=1023-((DJoyStick.RAW_IN[0]>>10)&0x000003FF);
+  DJoyStick.Z=((DJoyStick.RAW_IN[0]>>24)&0x000000FF);
+  for(int i=0;i<8;i++)
+	DJoyStick.Button[i]=(char)((DJoyStick.RAW_IN[1]>>i)&0x00000001);
+  DJoyStick.Throttle=	(DJoyStick.RAW_IN[1]>>8)&0x000000FF;
+  for(int i=8;i<13;i++)
+	DJoyStick.Button[i]=(char)((DJoyStick.RAW_IN[1]>>i+8)&0x00000001);
+  DJoyStick.Hat = (uint8_t)((DJoyStick.RAW_IN[0]>>20)&0xF);
+  // Mechanical functions and sensors
+  force = 80 + 1920 * (255.0-DJoyStick.Throttle) / 255.0;
+  //vibrationForce = DJoyStick.Throttle / 255.0;
+}
+
+void calculatePWM()
+{
+	if(DJoyStick.Y > 550)
+	  {
+		  if(!DJoyStick.Button[1])
+			  dutyCycle = 0.45 + 0.35 * (DJoyStick.Y - 700.0) / 323.0;
+		  else
+			  dutyCycle = 0.9 + 0.1 * (DJoyStick.Y - 700.0) / 323.0;
+		  isDown = 1;
+	  }
+	  else
+	  {
+		  if(!DJoyStick.Button[1])
+			  dutyCycle = 0.45 + 0.35 * (-(DJoyStick.Y-400.0)) / 400.0;
+		  else
+			  dutyCycle = 0.9 + 0.1 * (-(DJoyStick.Y-400.0)) / 400.0;
+		  isDown = 0;
+	  }
+
+	  if(dutyCycle < 0.45) dutyCycle = 0.45;
+	  else if(dutyCycle > 1.0) dutyCycle = 1.0;
+
+	  nack = SW_I2C_ReadControl_8Bit(SW_I2C1,QMC5883L_ADDR,QMC5883L_CTRL);
+	  QMC5883L_UpdateAxisReadings();
+	  if(isDown)
+		  htim1.Instance->CCR3 = (int)(MOTOR_PWM_PERIOD*(dutyCycle-0.35)) - 1;
+	  else
+		  htim1.Instance->CCR3 = (int)(MOTOR_PWM_PERIOD*dutyCycle) - 1;
+}
+void checkBounds()
+{
+	  if(SensorUp.RawX > 0)
+	  {
+		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
+		  isUpS = 1;
+	  }
+	  if(abs(SensorDown.RawX) > 25000)
+	  {
+		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
+		  isDownS = 1;
+	  }
+}
+
+void controlMotor()
+{
+	if(DJoyStick.Button[0])
+	  {
+		  if(isDown)
+		  {
+			  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_SET);
+			  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
+
+			  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
+			  isUpS = 0;
+		  }
+		  else
+		  {
+			  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
+			  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_SET);
+
+			  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
+			  isDownS = 0;
+		  }
+	  }
+	  else
+	  {
+		  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
+	  }
+	  if(abs(SensorGrip1.AxisZ) > force ||
+		 abs(SensorGrip2.AxisZ) > force ||
+		 abs(SensorGrip3.AxisZ) > force)
+	  {
+		  isForceReached = 1;
+	  }
+	  else
+		  isForceReached = 0;
+
+	  if((isDown && isDownS) ||
+		 (!isDown && isUpS) ||
+		 (isForceReached) &&
+		 isDown)
+	  {
+		  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
+	  }
 }
 /* USER CODE END PFP */
 
@@ -210,160 +348,25 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_Delay(10);
+	  HAL_Delay(5);
 	  ReadWriteJoyStick();
 	  //HAL_Delay(force);
 	  //ForceFeedbackTest();
-	  //Vibrate(vibrationForce);
-
-	  DJoyStick.X=DJoyStick.RAW_IN[0]&0x000003FF;
-	  DJoyStick.Y=1023-((DJoyStick.RAW_IN[0]>>10)&0x000003FF);
-	  DJoyStick.Z=((DJoyStick.RAW_IN[0]>>24)&0x000000FF);
-	  for(int i=0;i<8;i++)
-		DJoyStick.Button[i]=(char)((DJoyStick.RAW_IN[1]>>i)&0x00000001);
-	  DJoyStick.Throttle=	(DJoyStick.RAW_IN[1]>>8)&0x000000FF;
-	  for(int i=8;i<13;i++)
-		DJoyStick.Button[i]=(char)((DJoyStick.RAW_IN[1]>>i+8)&0x00000001);
-	  DJoyStick.Hat = (uint8_t)((DJoyStick.RAW_IN[0]>>20)&0xF);
-      // Mechanical functions and sensors
-	  force = 1000 + 9000 * (255.0-DJoyStick.Throttle) / 255.0;
-	  //vibrationForce = DJoyStick.Throttle / 255.0;
-	  for(int i = 0; i<12;i++)
+	  if(isForceReached && DJoyStick.Y > 700 && DJoyStick.Button[0])
 	  {
-		  if(DJoyStick.Button[i] == 1)
-		  {
-			  ILI9341_Draw_Filled_Rectangle_Coord(2+i*20, 20, 18+i*20, 30, GREEN);
-		  } else
-		  {
-			  ILI9341_Draw_Filled_Rectangle_Coord(2+i*20, 20, 18+i*20, 30, RED);
-		  }
-	  }
-	  int pixelsY = (236*DJoyStick.Y/1023);
-	  if(pixelsY != 0)
-		  ILI9341_Draw_Rectangle(2, 62, pixelsY, 5, WHITE);
-	  if(pixelsY != 236)
-		  ILI9341_Draw_Rectangle(2+pixelsY, 62, (236-pixelsY), 5, BLACK);
-
-
-	  int pixelsF = (236*(255-DJoyStick.Throttle)/255);
-	  if(pixelsF != 0)
-		  ILI9341_Draw_Rectangle(2, 91, pixelsF, 5, WHITE);
-	  if(pixelsF != 236)
-		  ILI9341_Draw_Rectangle(2+pixelsF, 91, (236-pixelsF), 5, BLACK);
-
-	  drawNumber(abs(SensorGrip1.AxisZ), 10, 120, BLACK, 2, WHITE);
-
-	  drawNumber(abs(SensorGrip2.AxisZ), 10, 160, BLACK, 2, WHITE);
-
-	  drawNumber(abs(SensorGrip3.AxisZ), 10, 200, BLACK, 2, WHITE);
-
-	  if(DJoyStick.Y > 550)
-	  {
-		  if(!DJoyStick.Button[1])
-			  dutyCycle = 0.45 + 0.35 * (DJoyStick.Y - 700.0) / 323.0;
-		  else
-			  dutyCycle = 0.9 + 0.1 * (DJoyStick.Y - 700.0) / 323.0;
-		  isDown = 1;
+		  canVibrate = 1;
 	  }
 	  else
 	  {
-		  if(!DJoyStick.Button[1])
-			  dutyCycle = 0.45 + 0.35 * (-(DJoyStick.Y-400.0)) / 400.0;
-		  else
-			  dutyCycle = 0.9 + 0.1 * (-(DJoyStick.Y-400.0)) / 400.0;
-		  isDown = 0;
+		  canVibrate = 0;
 	  }
+	  Vibrate(0.8 + 0.2 * (DJoyStick.Y-700)/323);
+	  InterpretJoystickData();
+	  SendDataLCD();
 
-	  if(dutyCycle < 0.45) dutyCycle = 0.45;
-	  else if(dutyCycle > 1.0) dutyCycle = 1.0;
-
-	  nack = SW_I2C_ReadControl_8Bit(SW_I2C1,QMC5883L_ADDR,QMC5883L_CTRL);
-	  QMC5883L_UpdateAxisReadings();
-	  if(isDown)
-		  htim1.Instance->CCR3 = (int)(MOTOR_PWM_PERIOD*(dutyCycle-0.35)) - 1;
-	  else
-		  htim1.Instance->CCR3 = (int)(MOTOR_PWM_PERIOD*dutyCycle) - 1;
-
-//#ifdef DEBUG_MAGZ
-//
-//	  if((SensorGrip1.AxisZ > 1000) | (SensorGrip2.AxisZ > 1000) | (SensorGrip3.AxisZ > 1000))
-//	  {
-//		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
-//	  }
-//	  else
-//	  {
-//		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
-//	  }
-//	  if((abs(SensorUp.AxisZ) > 1000) | (abs(SensorDown.AxisZ) > 1000))
-//	  {
-//		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
-//	  }
-//	  else
-//	  {
-//		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
-//	  }
-//#endif
-#ifdef DEBUG_BOUNDS
-	  if(abs(SensorUp.RawX) > 25000 && SensorUp.RawZ < 500)
-	  {
-		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_SET);
-		  isUpS = 1;
-	  }
-	  else
-	  {
-//		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
-//		  isUpS = 0;
-	  }
-	  //if(abs(SensorDown.RawX) > 27000 && abs(SensorDown.RawX) < 30000 && SensorDown.RawZ < 1500)
-	  if(abs(SensorDown.RawX) > 10000 && (abs(SensorDown.RawZ) < 2000 || SensorDown.RawZ < -5000) && SensorDown.RawY < -300)
-	  {
-		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_SET);
-		  isDownS = 1;
-	  }
-	  else
-	  {
-//		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
-//		  isDownS = 0;
-	  }
-
-
-#endif
-	  HAL_Delay(1);
-	  if(DJoyStick.Button[0])
-	  {
-		  if(isDown)
-		  {
-			  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_SET);
-			  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
-
-			  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, GPIO_PIN_RESET);
-			  isUpS = 0;
-		  }
-		  else
-		  {
-			  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
-			  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_SET);
-
-			  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, GPIO_PIN_RESET);
-			  isDownS = 0;
-		  }
-	  }
-	  else
-	  {
-		  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
-		  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
-	  }
-
-	  if((isDown && isDownS) ||
-	  	 (!isDown && isUpS) ||
-	  	 (abs(SensorGrip1.AxisZ) > force ||
-	  	 abs(SensorGrip2.AxisZ) > force ||
-	  	 abs(SensorGrip3.AxisZ) > force) &&
-	  	 isDown)
-	  {
-		  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
-		  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
-	  }
+	  calculatePWM();
+	  checkBounds();
+	  controlMotor();
 
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();

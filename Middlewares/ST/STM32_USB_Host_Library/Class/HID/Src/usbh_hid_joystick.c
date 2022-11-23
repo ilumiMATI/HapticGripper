@@ -86,15 +86,16 @@ int PX=0;
 int PY=0;
 int swc=0;
 int X = 0;
-char canVibrate = 0;
+char canVibrate = 1;
 char vibOffset = 0;
 long lastTick = 0;
 void Vibrate(float strength)
 {
-	if(DJoyStick.Button[0])
-		canVibrate=1;
-	if(DJoyStick.Button[1])
-		canVibrate=0;
+//	if(DJoyStick.Button[0])
+//		canVibrate=1;
+//	if(DJoyStick.Button[1])
+//		canVibrate=0;
+	strength = 1.0 - strength;
 
 	if(canVibrate && (HAL_GetTick() - lastTick > strength*100+20))
 	{
@@ -123,7 +124,7 @@ void Vibrate(float strength)
 	DJoyStick.RAW_OUT[6]=0;
 	lastTick = HAL_GetTick();
 	}
-	else
+	else if (!canVibrate)
 	{
 		DJoyStick.RAW_OUT[0]=0x53;
 		DJoyStick.RAW_OUT[1]=0x00;
