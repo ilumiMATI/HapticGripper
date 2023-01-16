@@ -14,7 +14,6 @@ typedef struct _HID_JOYSTICK_Info
 	uint8_t    	RAW_OUT[8];//force feedback x,y
 	uint8_t    	RAW_OUT_OLD[8];//force feedback x,y
 
-
 	uint16_t    X;
 	uint16_t    Y;
 	uint16_t    Z;

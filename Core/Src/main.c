@@ -175,7 +175,7 @@ void InterpretJoystickData()
   //vibrationForce = DJoyStick.Throttle / 255.0;
 }
 
-void calculatePWM()
+void calculateControl()
 {
 	if(DJoyStick.Y > 550)
 	  {
@@ -362,9 +362,10 @@ int main(void)
 	  }
 	  Vibrate(0.8 + 0.2 * (DJoyStick.Y-700)/323);
 	  InterpretJoystickData();
+
 	  SendDataLCD();
 
-	  calculatePWM();
+	  calculateControl();
 	  checkBounds();
 	  controlMotor();
 
