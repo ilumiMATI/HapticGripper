@@ -197,7 +197,7 @@ void calculateControl()
 	  if(dutyCycle < 0.45) dutyCycle = 0.45;
 	  else if(dutyCycle > 1.0) dutyCycle = 1.0;
 
-	  nack = SW_I2C_ReadControl_8Bit(SW_I2C1,QMC5883L_ADDR,QMC5883L_CTRL);
+	  nack = MAG_I2C_read_command(1,QMC5883L_ADDR,QMC5883L_CTRL);
 	  QMC5883L_UpdateAxisReadings();
 	  if(isDown)
 		  htim1.Instance->CCR3 = (int)(MOTOR_PWM_PERIOD*(dutyCycle-0.35)) - 1;
@@ -310,8 +310,8 @@ int main(void)
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
 
   // sensor inits
-  SW_I2C_initial();
-  i2c_port_initial(SW_I2C1);
+  MAG_I2C_PinConfig();
+  i2c_begin_state();
   HAL_TIM_Base_Start(&htim2);
   QMC5883L_Init();
 
