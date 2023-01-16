@@ -35,7 +35,7 @@
 #endif
 
 
-void TIMER__Wait_us(__IO uint32_t nCount)
+void i2c_wait_us(__IO uint32_t nCount)
 {
     for (; nCount != 0;nCount--);
 }
@@ -164,7 +164,7 @@ void sda_out_mode() // select not needed (it is only mode)
 void i2c_clk_cycle()
 {
     scl_high();
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
     scl_low();
 
 }
@@ -180,12 +180,12 @@ void i2c_start() // I2C START
     sda_high();
     scl_high();
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
     sda_low();
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
     scl_low();
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME << 1);
+    i2c_wait_us(SW_I2C_WAIT_TIME << 1);
 }
 
 void i2c_stop() // I2C STOP
@@ -193,9 +193,9 @@ void i2c_stop() // I2C STOP
     sda_low();
     scl_high();
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
     sda_high();
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
 }
 
 uint8_t i2c_check_slave_ack(uint8_t sel)
@@ -209,7 +209,7 @@ uint8_t i2c_check_slave_ack(uint8_t sel)
     scl_high();
 
     ack = 0;
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
 
     for (i = 10; i > 0; i--)
     {
@@ -223,7 +223,7 @@ uint8_t i2c_check_slave_ack(uint8_t sel)
     scl_low();
     sda_out_mode();
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
     return ack;
 }
 
@@ -232,7 +232,7 @@ void i2c_send_master_not_ack() // ?
     sda_in_mode();
     i2c_clk_cycle();
     sda_out_mode();
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
 }
 
 void i2c_slave_address(uint8_t IICID, uint8_t readwrite) // I2C adress + read/write
@@ -253,7 +253,7 @@ void i2c_slave_address(uint8_t IICID, uint8_t readwrite) // I2C adress + read/wr
     for (x = 7; x >= 0; x--)
     {
         sda_out(IICID & (1 << x));
-        TIMER__Wait_us(SW_I2C_WAIT_TIME);
+        i2c_wait_us(SW_I2C_WAIT_TIME);
         i2c_clk_cycle();
 
     }
@@ -268,7 +268,7 @@ void i2c_register_address(uint8_t addr) // register address
     for (x = 7; x >= 0; x--)
     {
         sda_out(addr & (1 << x));
-        TIMER__Wait_us(SW_I2C_WAIT_TIME);
+        i2c_wait_us(SW_I2C_WAIT_TIME);
         i2c_clk_cycle();
 
     }
@@ -279,21 +279,20 @@ void i2c_send_master_ack() // Master ACK
     sda_out_mode();
     sda_low();
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
     scl_high();
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME << 1);
+    i2c_wait_us(SW_I2C_WAIT_TIME << 1);
 
     sda_low();
-    TIMER__Wait_us(SW_I2C_WAIT_TIME << 1);
+    i2c_wait_us(SW_I2C_WAIT_TIME << 1);
 
     scl_low();
 
     sda_out_mode();
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
 }
-
 
 uint8_t MAG_I2C_read_SDA(uint8_t sel) // reading (select is neaded)
 {
@@ -322,11 +321,12 @@ void MAG_I2C_write_byte(uint8_t data) // data to write over i2c, individual sens
     for (x = 7; x >= 0; x--)
     {
         sda_out(data & (1 << x));
-        TIMER__Wait_us(SW_I2C_WAIT_TIME);
+        i2c_wait_us(SW_I2C_WAIT_TIME);
         i2c_clk_cycle();
 
     }
 }
+
 uint8_t MAG_I2C_read_byte(uint8_t sel) // data to read (classic i2c, select needed for individual sensor)
 {
     int      x;
@@ -342,10 +342,10 @@ uint8_t MAG_I2C_read_byte(uint8_t sel) // data to read (classic i2c, select need
         if (MAG_I2C_read_SDA(sel))
             readdata |= 0x01;
 
-        TIMER__Wait_us(SW_I2C_WAIT_TIME);
+        i2c_wait_us(SW_I2C_WAIT_TIME);
         scl_low();
 
-        TIMER__Wait_us(SW_I2C_WAIT_TIME);
+        i2c_wait_us(SW_I2C_WAIT_TIME);
     }
 
     sda_out_mode();
@@ -370,10 +370,10 @@ void MAG_I2C_read_all_byte(uint8_t *data) // data to read (modded i2c)
         		data[i] |= 0x01;
         }
 
-        TIMER__Wait_us(SW_I2C_WAIT_TIME);
+        i2c_wait_us(SW_I2C_WAIT_TIME);
         scl_low();
 
-        TIMER__Wait_us(SW_I2C_WAIT_TIME);
+        i2c_wait_us(SW_I2C_WAIT_TIME);
     }
 
     sda_out_mode();
@@ -391,7 +391,7 @@ uint8_t MAG_I2C_write_command(uint8_t IICID, uint8_t regaddr, uint8_t data)
         returnack = FALSE;
     }
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
 
     i2c_register_address(regaddr);
     if (!i2c_check_slave_ack(1))
@@ -399,7 +399,7 @@ uint8_t MAG_I2C_write_command(uint8_t IICID, uint8_t regaddr, uint8_t data)
         returnack = FALSE;
     }
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
 
     MAG_I2C_write_byte(data);
     if (!i2c_check_slave_ack(1))
@@ -407,7 +407,7 @@ uint8_t MAG_I2C_write_command(uint8_t IICID, uint8_t regaddr, uint8_t data)
         returnack = FALSE;
     }
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
 
     i2c_stop();
 
@@ -428,14 +428,14 @@ uint8_t MAG_I2C_read_command(uint8_t sel, uint8_t IICID, uint8_t regaddr)
     i2c_register_address(regaddr);
     i2c_check_slave_ack(1);
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
 
     i2c_start();
 
     i2c_slave_address(IICID, READ_CMD);
     i2c_check_slave_ack(1);
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
 
     readdata = MAG_I2C_read_byte(sel);
 
@@ -458,12 +458,12 @@ uint8_t MAG_I2C_read_multiple_command(uint8_t IICID, uint8_t regaddr, uint8_t rc
     i2c_slave_address(IICID, WRITE_CMD);
     if (!i2c_check_slave_ack(1)) { returnack = FALSE; }
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
 
     i2c_register_address(regaddr);
     if (!i2c_check_slave_ack(1)) { returnack = FALSE; }
 
-    TIMER__Wait_us(SW_I2C_WAIT_TIME);
+    i2c_wait_us(SW_I2C_WAIT_TIME);
 
     i2c_start();
 
@@ -471,7 +471,7 @@ uint8_t MAG_I2C_read_multiple_command(uint8_t IICID, uint8_t regaddr, uint8_t rc
     if (!i2c_check_slave_ack(1)) { returnack = FALSE; }
 
 	for ( index = 0 ; index < (rcnt-1) ; index++){
-		TIMER__Wait_us(SW_I2C_WAIT_TIME);
+		i2c_wait_us(SW_I2C_WAIT_TIME);
 		MAG_I2C_read_all_byte(pdata + index*QMC5883L_AMOUNT);
 		i2c_send_master_ack();
 	}

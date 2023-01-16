@@ -64,31 +64,29 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-extern USBH_HandleTypeDef hUsbHostHS;
+// Data structures
 extern HID_JOYSTICK_Info_TypeDef DJoyStick;
-HID_HandleTypeDef HID_handle;
-USBH_StatusTypeDef desc;
-int mousex, mousey;
-char hat1;
-uint8_t hat2;
-volatile int impulses = 0;
-volatile uint8_t prevState = 0;
-uint8_t isDown = 1;
-volatile double dutyCycle = 0.55;
-int force = 8500;
-uint8_t canMove = 0;
-char nack = 60;
-float vibrationForce = 0;
 extern QMC5883L_Info_TypeDef SensorDown;
 extern QMC5883L_Info_TypeDef SensorUp;
 extern QMC5883L_Info_TypeDef SensorGrip1;
 extern QMC5883L_Info_TypeDef SensorGrip2;
 extern QMC5883L_Info_TypeDef SensorGrip3;
+
+// Motor informations
+volatile int impulses = 0;
+volatile double dutyCycle = 0.55;
+uint8_t isDown = 1;
 char isUpS, isDownS;
-long lastDrawTick = 0;
-char charBuforNumber[6];
+
+// Haptic informations
+float vibrationForce = 0;
+int force = 8500;
 char isForceReached = 0;
 extern char canVibrate;
+
+// LCD informations
+long lastDrawTick = 0;
+char charBuforNumber[6];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -197,7 +195,6 @@ void calculateControl()
 	  if(dutyCycle < 0.45) dutyCycle = 0.45;
 	  else if(dutyCycle > 1.0) dutyCycle = 1.0;
 
-	  nack = MAG_I2C_read_command(1,QMC5883L_ADDR,QMC5883L_CTRL);
 	  QMC5883L_UpdateAxisReadings();
 	  if(isDown)
 		  htim1.Instance->CCR3 = (int)(MOTOR_PWM_PERIOD*(dutyCycle-0.35)) - 1;
@@ -350,8 +347,7 @@ int main(void)
   {
 	  HAL_Delay(5);
 	  ReadWriteJoyStick();
-	  //HAL_Delay(force);
-	  //ForceFeedbackTest();
+
 	  if(isForceReached && DJoyStick.Y > 700 && DJoyStick.Button[0])
 	  {
 		  canVibrate = 1;
