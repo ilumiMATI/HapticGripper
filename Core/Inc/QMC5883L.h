@@ -10,25 +10,36 @@
 
 #include "stm32f4xx_hal.h"
 
-#define QMC5883L_AMOUNT 5
+#define QMC5883L_AMOUNT 			5
 
-#define QMC5883L_ADDR (0x0D << 1)
+#define QMC5883L_ADDR 				(0x0D << 1)
 
-#define QMC5883L_XLSB 0x00
-#define QMC5883L_XMSB 0x01
+#define QMC5883L_XLSB 				0x00
+#define QMC5883L_XMSB 				0x01
+#define QMC5883L_YLSB 				0x02
+#define QMC5883L_YMSB 				0x03
+#define QMC5883L_ZLSB 				0x04
+#define QMC5883L_ZMSB 				0x05
+#define QMC5883L_STATUS 			0x06
+#define QMC5883L_CTRL 				0x09
+#define QMC5883L_PR 				0x0B
+#define QMC5883L_RST 				0x0A
 
-#define QMC5883L_YLSB 0x02
-#define QMC5883L_YMSB 0x03
+#define QMC5883L_MODE_STANDBY 		0x00
+#define QMC5883L_MODE_CONTINUOUS 	0x01
 
-#define QMC5883L_ZLSB 0x04
-#define QMC5883L_ZMSB 0x05
+#define QMC5883L_ODR_10HZ 			(0x00 << 2)
+#define QMC5883L_ODR_50HZ 			(0x01 << 2)
+#define QMC5883L_ODR_100HZ 			(0x10 << 2)
+#define QMC5883L_ODR_200HZ 			(0x11 << 2)
 
-#define QMC5883L_STATUS 0x06
+#define QMC5883L_RNG_2G 			(0x00 << 4)
+#define QMC5883L_RNG_8G 			(0x01 << 4)
 
-#define QMC5883L_CTRL 0x09
-#define QMC5883L_PR 0x0B
-
-#define QMC5883L_RST 0x0A
+#define QMC5883L_OSR_512 			(0x00 << 6)
+#define QMC5883L_OSR_256 			(0x01 << 6)
+#define QMC5883L_OSR_128 			(0x10 << 6)
+#define QMC5883L_OSR_64 			(0x11 << 6)
 
 typedef struct _QMC5883L_Info
 {

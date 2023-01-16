@@ -10,8 +10,14 @@
 #include "i2c_MA.h"
 #include "i2c_sw.h"
 
-uint8_t init_reg[2] = {0x01, 0xDD};
-uint8_t buffer[6*5];
+uint8_t init_reg[2] = {
+		0x01,
+		QMC5883L_MODE_CONTINUOUS |
+		QMC5883L_ODR_200HZ |
+		QMC5883L_RNG_8G |
+		QMC5883L_OSR_256
+};
+uint8_t buffer[6*QMC5883L_AMOUNT];
 
 QMC5883L_Info_TypeDef SensorDown;
 QMC5883L_Info_TypeDef SensorUp;
