@@ -91,10 +91,11 @@ char vibOffset = 0;
 long lastTick = 0;
 void Vibrate(float strength)
 {
-	if(DJoyStick.Button[0])
-		canVibrate=1;
-	if(DJoyStick.Button[1])
-		canVibrate=0;
+//	if(DJoyStick.Button[0])
+//		canVibrate=1;
+//	if(DJoyStick.Button[1])
+//		canVibrate=0;
+	strength = 1.0 - strength;
 
 	if(canVibrate && (HAL_GetTick() - lastTick > strength*100+20))
 	{
@@ -226,18 +227,6 @@ char ret;
 return ret;
 }
 
-//USBH_StatusTypeDef USBH_HID_JoyStickInit(USBH_HandleTypeDef *phost)
-//{
-//  HID_HandleTypeDef *HID_Handle = (HID_HandleTypeDef *) phost->pActiveClass->pData;
-//  if (HID_Handle->length > sizeof(joystick_report_data))
-//		{
-//    HID_Handle->length = (uint16_t)sizeof(joystick_report_data);
-//		}
-//  HID_Handle->pData = (uint8_t *)(void *)joystick_rx_report_buf;
-//  USBH_HID_FifoInit(&HID_Handle->fifo, phost->device.Data, (uint16_t)(HID_QUEUE_SIZE * sizeof(joystick_report_data)));
-//  return USBH_OK;
-//}
-
 USBH_StatusTypeDef USBH_HID_JoyStickInit(USBH_HandleTypeDef *phost)
 {
 	HID_HandleTypeDef *HID_Handle = (HID_HandleTypeDef *) phost->pActiveClass->pData;
@@ -247,37 +236,6 @@ USBH_StatusTypeDef USBH_HID_JoyStickInit(USBH_HandleTypeDef *phost)
 	return USBH_OK;
 }
 
-//HID_JOYSTICK_Info_TypeDef *USBH_HID_GetJoyStickInfo(USBH_HandleTypeDef *phost)
-//{
-//	if (USBH_HID_JoyStickDecode(phost) == USBH_OK)
-//	{
-//	  return &joystick_info;
-//	}
-//	else
-//	{
-//	  return NULL;
-//	}
-//}
-//
-//static USBH_StatusTypeDef USBH_HID_JoyStickDecode(USBH_HandleTypeDef *phost)
-//{
-//  HID_HandleTypeDef *HID_Handle = (HID_HandleTypeDef *) phost->pActiveClass->pData;
-//
-//  if (HID_Handle->length == 0U)
-//  {
-//    return USBH_FAIL;
-//  }
-//  /*Fill report */
-//  if (USBH_HID_FifoRead(&HID_Handle->fifo, &joystick_report_data, HID_Handle->length) ==  HID_Handle->length)
-//  {
-//    /*Decode report */
-//    joystick_info.X = (uint16_t)HID_ReadItem((HID_Report_ItemTypedef *) &joystick_X, 0U);
-//    joystick_info.Y = (uint16_t)HID_ReadItem((HID_Report_ItemTypedef *) &joystick_Y, 0U);
-//
-//    return USBH_OK;
-//  }
-//  return   USBH_FAIL;
-//}
 extern USBH_HandleTypeDef hUsbHostHS;
 void ReadWriteJoyStick(void)
 {

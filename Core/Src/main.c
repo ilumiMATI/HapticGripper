@@ -345,9 +345,10 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_Delay(5);
+	  HAL_Delay(1);
 	  ReadWriteJoyStick();
 
+	  InterpretJoystickData();
 	  if(isForceReached && DJoyStick.Y > 700 && DJoyStick.Button[0])
 	  {
 		  canVibrate = 1;
@@ -357,7 +358,6 @@ int main(void)
 		  canVibrate = 0;
 	  }
 	  Vibrate(0.8 + 0.2 * (DJoyStick.Y-700)/323);
-	  InterpretJoystickData();
 
 	  SendDataLCD();
 
