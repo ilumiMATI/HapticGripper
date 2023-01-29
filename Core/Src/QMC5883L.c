@@ -32,7 +32,9 @@ QMC5883L_Info_TypeDef* Sensors[QMC5883L_AMOUNT] = {
 	&SensorDown,
 	&SensorUp
 };
-
+extern volatile int impulses_max;
+extern volatile int impulses_min;
+extern volatile int impulses;
 void QMC5883L_UpdateAxisReadings()
 {
 	buffer[0] = MAG_I2C_read_command(1,QMC5883L_ADDR,QMC5883L_STATUS);
@@ -44,9 +46,13 @@ void QMC5883L_UpdateAxisReadings()
 			Sensors[i]->RawX = (buffer[1*QMC5883L_AMOUNT+i] << 8) | buffer[0*QMC5883L_AMOUNT+i];
 			Sensors[i]->RawY = (buffer[3*QMC5883L_AMOUNT+i] << 8) | buffer[2*QMC5883L_AMOUNT+i];
 			Sensors[i]->RawZ = (buffer[5*QMC5883L_AMOUNT+i] << 8) | buffer[4*QMC5883L_AMOUNT+i];
-			Sensors[i]->AxisX = Sensors[i]->RawX - Sensors[i]->OffsetX;
-			Sensors[i]->AxisY = Sensors[i]->RawY - Sensors[i]->OffsetY;
-			Sensors[i]->AxisZ = Sensors[i]->RawZ - Sensors[i]->OffsetZ;
+			int temp_index;
+			if(impulses - impulses_min < 0) temp_index = 0;
+			else if(impulses - impulses_min > 69) temp_index = 69;
+			else temp_index = impulses - impulses_min;
+			Sensors[i]->AxisX = Sensors[i]->RawX - Sensors[i]->OffsetX - Sensors[i]->offsetXTable[temp_index];
+			Sensors[i]->AxisY = Sensors[i]->RawY - Sensors[i]->OffsetY - Sensors[i]->offsetYTable[temp_index];
+			Sensors[i]->AxisZ = Sensors[i]->RawZ - Sensors[i]->OffsetZ - Sensors[i]->offsetYTable[temp_index];
 		}
 
 	}

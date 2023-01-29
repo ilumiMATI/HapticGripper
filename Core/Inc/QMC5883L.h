@@ -51,6 +51,11 @@ typedef struct _QMC5883L_Info
 	int16_t OffsetY;
 	int16_t OffsetZ;
 
+	int16_t offsetXTable[70];
+	int16_t offsetYTable[70];
+	int16_t offsetZTable[70];
+	char useTable;
+
 	int16_t RawX;
 	int16_t RawY;
 	int16_t RawZ;

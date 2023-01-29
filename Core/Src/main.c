@@ -27,7 +27,7 @@
 /* USER CODE BEGIN Includes */
 // Magnetometry I2C
 #include "QMC5883L.h"
-#include "i2c_MA.h"
+#include "i2c_MA.h" // jednak nieużywane
 #include "i2c_sw.h"
 
 // Joystick USB
@@ -38,8 +38,6 @@
 //LCD
 #include "ILI9341/ILI9341_STM32_Driver.h"
 #include "ILI9341/ILI9341_GFX.h"
-
-// lcd display
 
 /* USER CODE END Includes */
 
@@ -74,6 +72,8 @@ extern QMC5883L_Info_TypeDef SensorGrip3;
 
 // Motor informations
 volatile int impulses = 0;
+volatile int impulses_max = 0;
+volatile int impulses_min = 0;
 volatile double dutyCycle = 0.55;
 uint8_t isDown = 1;
 char isUpS, isDownS;
@@ -250,6 +250,7 @@ void controlMotor()
 	  else
 		  isForceReached = 0;
 
+
 	  if((isDown && isDownS) ||
 		 (!isDown && isUpS) ||
 		 (isForceReached) &&
@@ -257,6 +258,15 @@ void controlMotor()
 	  {
 		  HAL_GPIO_WritePin(MOT_IN1_GPIO_Port, MOT_IN1_Pin, GPIO_PIN_RESET);
 		  HAL_GPIO_WritePin(MOT_IN2_GPIO_Port, MOT_IN2_Pin, GPIO_PIN_RESET);
+	  }
+	  if(!isDown && isUpS)
+	  {
+		  QMC5883L_UpdateAxisReadings();
+		  QMC5883L_UpdateOffset();
+		  impulses_min = impulses;
+	  } else if(isDown && isDownS)
+	  {
+		  impulses_max = impulses;
 	  }
 }
 /* USER CODE END PFP */
@@ -345,8 +355,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_Delay(1);
 	  ReadWriteJoyStick();
+	  HAL_Delay(1);
 
 	  InterpretJoystickData();
 	  if(isForceReached && DJoyStick.Y > 700 && DJoyStick.Button[0])

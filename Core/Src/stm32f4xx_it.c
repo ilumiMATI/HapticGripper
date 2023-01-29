@@ -43,6 +43,8 @@
 /* USER CODE BEGIN PV */
 extern volatile int impulses;
 extern uint8_t isDown;
+extern volatile int impulses_max;
+extern volatile int impulses_min;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -205,10 +207,14 @@ void SysTick_Handler(void)
 void EXTI9_5_IRQHandler(void)
 {
   /* USER CODE BEGIN EXTI9_5_IRQn 0 */
-  if(isDown)
-	  impulses++;
-  else
-	  impulses--;
+  if(isDown) {
+	  if(++impulses > impulses_max)
+		  impulses_max = impulses;
+  }
+  else {
+	  if(--impulses < impulses_min)
+	  	  impulses_min = impulses;
+  }
   /* USER CODE END EXTI9_5_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(ACP_RST_Pin);
   /* USER CODE BEGIN EXTI9_5_IRQn 1 */
