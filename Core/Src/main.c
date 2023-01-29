@@ -84,6 +84,10 @@ int force = 8500;
 char isForceReached = 0;
 extern char canVibrate;
 
+// magnetometer calibration
+extern char isOffsetTableOn;
+char isCalibrationOn = 0;
+
 // LCD informations
 long lastDrawTick = 0;
 char charBuforNumber[6];
@@ -368,6 +372,28 @@ int main(void)
 		  canVibrate = 0;
 	  }
 	  Vibrate(0.8 + 0.2 * (DJoyStick.Y-700)/323);
+
+	  // kalibracja wplywu sasiednich magnesow
+	  // ------------------------------------
+	  // aby rozpocząć należy wcisnąć przycisk 7 a następnie
+	  // kontrolować ruch chwytaka w całym zakresie pracy
+	  // na koniec zakończyć kalibracje poprzez przycisk 8
+	  if(DJoyStick.Button[6])
+		  isCalibrationOn = 1;
+	  if(DJoyStick.Button[7])
+		  isCalibrationOn = 0;
+	  if(isCalibrationOn)
+		  QMC5883L_UpdateOffsetTable();
+
+	  // użycie danych z kalibracji
+	  // --------------------------
+	  // aby użyć danych z kalibracji wcisnąć przycisk 9
+	  // aby wyłączyć dane z kalibracji wcisnąć przycisk 10
+	  if(DJoyStick.Button[8])
+		  isOffsetTableOn = 1;
+	  if(DJoyStick.Button[9])
+		  isOffsetTableOn = 0;
+
 
 	  SendDataLCD();
 

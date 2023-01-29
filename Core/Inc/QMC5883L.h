@@ -71,6 +71,7 @@ int16_t QMC5883L_GetAxisZ();
 
 void QMC5883L_UpdateAxisReadings();
 void QMC5883L_UpdateOffset();
+void QMC5883L_UpdateOffsetTable();
 
 int16_t QMC5883L_GetHeading();
 
